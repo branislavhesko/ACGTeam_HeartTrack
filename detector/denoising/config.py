@@ -27,3 +27,4 @@ class DenoisingConfig:
                                    shuffle=True
                                    )
         }
+

@@ -34,6 +34,8 @@ class UNetPCGDenoiser(nn.Module):
         self.decoder1 = self._block(features * 2, features)
         
         self.final_conv = nn.Conv1d(features, out_channels, kernel_size=1)
+        
+        self.classifier = nn.Linear(features, 1)
     
     def _block(self, in_channels, out_channels):
         return nn.Sequential(
@@ -68,5 +70,10 @@ class UNetPCGDenoiser(nn.Module):
         dec1 = self.upconv1(dec2)
         dec1 = torch.cat((dec1, enc1), dim=1)
         dec1 = self.decoder1(dec1)
+
+        clean_signal = self.final_conv(dec1)
         
-        return self.final_conv(dec1)
+        flattened = torch.flatten(clean_signal, start_dim=1)
+        quality_output = torch.sigmoid(self.classifier(flattened))
+        
+        return clean_signal, quality_output
