@@ -9,14 +9,14 @@ from config import DenoisingConfig, Mode
 
 
 class Engine(L.LightningModule):
-    def __init__(self, model, lr=1e-3):
+    def __init__(self, model, config):
         super(Engine, self).__init__()
         self.model = model
         self.criterion = nn.MSELoss()
 
         self.data_loaders = self.args.make_dataloaders()
 
-        self.lr = lr
+        self.lr = config.lr
 
     def train_dataloader(self) -> torch.utils.data.DataLoader:
         return self.data_loaders[Mode.TRAIN]
@@ -43,6 +43,7 @@ class Engine(L.LightningModule):
         optimizer = optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
 
+
 if __name__ == "__main__":
     config = DenoisingConfig()
     model = UNet1D()
@@ -50,3 +51,4 @@ if __name__ == "__main__":
     
     trainer = L.Trainer(max_epochs=50, accumulate_grad_batches=8, precision="16-mixed")
     trainer.fit(engine)
+    

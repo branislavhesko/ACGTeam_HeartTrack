@@ -14,9 +14,10 @@ class Mode(Enum):
 
 @dataclasses.dataclass
 class DenoisingConfig:
-    lr: float = ...
+    lr: float = 1e-4
     batch_size: int = ...
-    num_epochs: int = ...
+    num_epochs: int = 15
+    num_workers: int = 4
 
     def make_dataloaders(self):
         return {
@@ -24,10 +25,5 @@ class DenoisingConfig:
                                    batch_size=self.batch_size,
                                    num_workers=self.num_workers,
                                    shuffle=True
-                                   ),
-            Mode.VAL: DataLoader(PPGDataset(...),
-                                 batch_size=self.batch_size,
-                                 num_workers=self.num_workers,
-                                 shuffle=False
-                                 )
+                                   )
         }
