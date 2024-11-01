@@ -18,6 +18,17 @@ class GaussianNoise(torch.nn.Module):
             return x + torch.randn_like(x) * self.std + self.mean
         else:
             return x
+        
+
+class MotionBlur(torch.nn.Module):
+    def __init__(self, frequency_min: float, frequency_max: float, probability: float):
+        super().__init__()
+        self.frequency_min = frequency_min
+        self.frequency_max = frequency_max
+        self.probability = probability
+        
+    def forward(self, x: torch.Tensor):
+        pass
 
 
 class PoissonNoise(torch.nn.Module):
@@ -83,6 +94,13 @@ class WFDBDataset(torch.utils.data.Dataset):
         return self.transform(min_max_normalization(data)).float(), torch.tensor(quality).long()
 
 
+def filter_bad_data(ppg_file, assert_length_min: int = 300):
+    record = load_record(ppg_file.with_suffix(""))
+    if record.p_signal.shape[0] < assert_length_min:
+        return False
+    return True
+
+
 def get_dataloader(
         folder_path: str | pathlib.Path,
         batch_size: int,
@@ -90,6 +108,7 @@ def get_dataloader(
         pin_memory: bool
 ):
     ppg_files = list(pathlib.Path(folder_path).rglob("*PPG.dat"))
+    ppg_files = [file for file in ppg_files if filter_bad_data(file)]
     ppg_files_without_ext = [file.with_suffix("") for file in ppg_files]
     quality_file = pathlib.Path(folder_path) / "quality-hr-ann.csv"
     quality_df = pd.read_csv(quality_file)
