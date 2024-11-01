@@ -18,8 +18,8 @@ class GaussianNoise(torch.nn.Module):
             return x + torch.randn_like(x) * self.std + self.mean
         else:
             return x
-    
-    
+
+
 class PoissonNoise(torch.nn.Module):
     def __init__(self, lam: float, probability: float):
         super().__init__()
@@ -61,7 +61,7 @@ class WFDBDataset(torch.utils.data.Dataset):
         self.quality_df = quality_df
         self.quality_annotation = self._make_quality_annotation()
         self.transform = transform
-        
+
     def _make_quality_annotation(self):
         quality_annotation = {}
         for _, row in self.quality_df.iterrows():
@@ -70,13 +70,16 @@ class WFDBDataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.record_names)
-    
+
     def __getitem__(self, idx):
         record_name = self.record_names[idx]
         record_folder_name = pathlib.Path(record_name).parent.name
         record = load_record(record_name)
         quality = self.quality_annotation[int(record_folder_name)]
         data = torch.from_numpy(record.p_signal).float()
+
+        data = data[torch.randint(0, data.shape[0], (1,)), :]
+
         return self.transform(min_max_normalization(data)).float(), torch.tensor(quality).long()
 
 
@@ -84,8 +87,8 @@ def get_dataloader(
         folder_path: str | pathlib.Path,
         batch_size: int,
         num_workers: int,
-        pin_memory: bool 
-    ):
+        pin_memory: bool
+):
     ppg_files = list(pathlib.Path(folder_path).rglob("*PPG.dat"))
     ppg_files_without_ext = [file.with_suffix("") for file in ppg_files]
     quality_file = pathlib.Path(folder_path) / "quality-hr-ann.csv"
@@ -104,9 +107,9 @@ def get_dataloader(
     )
 
 
-
 if __name__ == "__main__":
     from matplotlib import pyplot as plt
+
     dataloader = get_dataloader(
         "/Users/brani/Downloads/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0",
         batch_size=1,

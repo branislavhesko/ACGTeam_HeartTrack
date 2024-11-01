@@ -4,32 +4,38 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from model import UNetPPG
-from config import DenoisingConfig, Mode
+from model import UNet
+from config import DenoisingConfig
+from dataloader import get_dataloader
 
 
 class Engine(L.LightningModule):
-    def __init__(self, model, config):
-        super(Engine, self).__init__()
+    def __init__(self, model, config, **kwargs):
+        super().__init__(**kwargs)
         self.model = model
         self.criterion = nn.MSELoss()
 
-        self.data_loaders = self.args.make_dataloaders()
+        self.data_loaders = get_dataloader(
+            folder_path=config.folder_path,
+            batch_size=config.batch_size,
+            num_workers=1,
+            pin_memory=True
+        )
 
         self.lr = config.lr
 
     def train_dataloader(self) -> torch.utils.data.DataLoader:
-        return self.data_loaders[Mode.TRAIN]
-    
-    def training_step(self, batch, batch_idx):
-        data, targets = batch
-        outputs = self(data)
-        loss = self.criterion(outputs, targets)
+        return self.data_loaders
 
+    def training_step(self, batch):
+        data, targets = batch
+        denoised_output, quality_output = self.model(data)
+
+        loss = self.criterion(denoised_output, data)
         self.log('train_loss', loss)
 
         return loss
-    
+
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.lr)
         return optimizer
@@ -37,9 +43,8 @@ class Engine(L.LightningModule):
 
 if __name__ == "__main__":
     config = DenoisingConfig()
-    model = UNetPPG()
+    model = UNet()
     engine = Engine(model, config)
-    
-    trainer = L.Trainer(max_epochs=50, accumulate_grad_batches=8, precision="16-mixed")
+
+    trainer = L.Trainer(max_epochs=config.num_epochs)
     trainer.fit(engine)
-    
