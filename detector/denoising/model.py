@@ -2,9 +2,9 @@ import torch
 import torch.nn as nn
 
 
-class UNetPCGDenoiser(nn.Module):
+class UNetPPG(nn.Module):
     def __init__(self, in_channels=1, out_channels=1, init_features=64):
-        super(UNetPCGDenoiser, self).__init__()
+        super(UNetPPG, self).__init__()
         
         features = init_features
         self.encoder1 = self._block(in_channels, features)

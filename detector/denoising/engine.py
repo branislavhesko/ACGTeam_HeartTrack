@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
-from model import UNetPCGDenoiser
+from model import UNetPPG
 from config import DenoisingConfig, Mode
 
 
@@ -37,7 +37,7 @@ class Engine(L.LightningModule):
 
 if __name__ == "__main__":
     config = DenoisingConfig()
-    model = UNetPCGDenoiser()
+    model = UNetPPG()
     engine = Engine(model, config)
     
     trainer = L.Trainer(max_epochs=50, accumulate_grad_batches=8, precision="16-mixed")
