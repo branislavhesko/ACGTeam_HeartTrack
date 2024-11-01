@@ -6,6 +6,44 @@ import torch
 import wfdb
 
 
+class GaussianNoise(torch.nn.Module):
+    def __init__(self, mean: float, std: float, probability: float):
+        super().__init__()
+        self.probability = probability
+        self.mean = mean
+        self.std = std
+
+    def forward(self, x: torch.Tensor):
+        if torch.rand(1) < self.probability:
+            return x + torch.randn_like(x) * self.std + self.mean
+        else:
+            return x
+    
+    
+class PoissonNoise(torch.nn.Module):
+    def __init__(self, lam: float, probability: float):
+        super().__init__()
+        self.lam = lam
+        self.probability = probability
+
+    def forward(self, x: torch.Tensor):
+        if torch.rand(1) < self.probability:
+            return x + torch.poisson(torch.randn_like(x) * self.lam)
+        else:
+            return x
+
+
+class Compose(torch.nn.Module):
+    def __init__(self, transforms: list[torch.nn.Module]):
+        super().__init__()
+        self.transforms = torch.nn.ModuleList(transforms)
+
+    def forward(self, x: torch.Tensor):
+        for transform in self.transforms:
+            x = transform(x)
+        return x
+
+
 def load_record(record_name):
     record = wfdb.rdrecord(record_name)
     return record
@@ -18,10 +56,11 @@ def min_max_normalization(signal):
 
 
 class WFDBDataset(torch.utils.data.Dataset):
-    def __init__(self, record_names, quality_df):
+    def __init__(self, record_names, quality_df, transform: torch.nn.Module):
         self.record_names = record_names
         self.quality_df = quality_df
         self.quality_annotation = self._make_quality_annotation()
+        self.transform = transform
         
     def _make_quality_annotation(self):
         quality_annotation = {}
@@ -38,7 +77,7 @@ class WFDBDataset(torch.utils.data.Dataset):
         record = load_record(record_name)
         quality = self.quality_annotation[int(record_folder_name)]
         data = torch.from_numpy(record.p_signal).float()
-        return min_max_normalization(data).float(), torch.tensor(quality).long()
+        return self.transform(min_max_normalization(data)).float(), torch.tensor(quality).long()
 
 
 def get_dataloader(
@@ -51,7 +90,10 @@ def get_dataloader(
     ppg_files_without_ext = [file.with_suffix("") for file in ppg_files]
     quality_file = pathlib.Path(folder_path) / "quality-hr-ann.csv"
     quality_df = pd.read_csv(quality_file)
-    dataset = WFDBDataset(ppg_files_without_ext, quality_df)
+    transform = Compose([
+        GaussianNoise(mean=0, std=0.005, probability=0.5),
+    ])
+    dataset = WFDBDataset(ppg_files_without_ext, quality_df, transform)
     return torch.utils.data.DataLoader(
         dataset,
         num_workers=num_workers,
