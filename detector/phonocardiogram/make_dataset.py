@@ -2,6 +2,7 @@ import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 from scipy.io import loadmat
 from scipy.signal import butter, filtfilt, spectrogram
 
@@ -106,21 +107,28 @@ def yield_samples():
         t_intervals = list(zip(t[:-1], t[1:]))
         peak_time_intervals = peak_intervals(peak_locs, len(signal), fs, interval_ratio_left, interval_ratio_right)
         overlaps = compute_overlaps(t_intervals, peak_time_intervals, windows_per_sec * 2)  # *2 due to overlap
-        yield from zip(S.T, overlaps.reshape([-1, 1]))
+        S = S.T
+        norm_data = (S - np.mean(S, axis=0))
+        norm_data /= np.std(norm_data, axis=0)
+        for x, y in zip(norm_data, overlaps):
+            yield x.ravel().reshape(-1, 1), y.ravel().reshape(-1, 1)
 
 
-def plot_some_data():
+def plot_some_data(model = None):
     signal, peak_locs = next(yield_raw_data())
     f, t, S = get_spectrogram(signal, fs, windows_per_sec)
     t_intervals = list(zip(t[:-1], t[1:]))
     peak_time_intervals = peak_intervals(peak_locs, len(signal), fs, interval_ratio_left, interval_ratio_right)
     overlaps = compute_overlaps(t_intervals, peak_time_intervals, windows_per_sec * 2)  # *2 due to overlap
+    S = S.T
+    norm_data = (S - np.mean(S, axis=0))
+    norm_data /= np.std(norm_data, axis=0)
 
-    fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(14, 10),
-                                        sharex=True, gridspec_kw={'height_ratios': [5, 1, 3]})
+    fig, (ax1, ax2, ax4, ax3) = plt.subplots(4, 1, figsize=(14, 10),
+                                        sharex=True, gridspec_kw={'height_ratios': [5, 1, 1, 3]})
 
     ax1.pcolormesh(
-        t, f, S,
+        t, f, norm_data.T,
         shading='flat',          # Use 'flat' shading to show cell edges
         cmap='viridis',
         edgecolors='white',           # Set edge colors for grid lines
@@ -151,30 +159,43 @@ def plot_some_data():
 
     ax2.scatter((t[:-1] + t[1:]) / 2, overlaps)
 
+    if model:
+        threshold = 0.01
+        with torch.no_grad():
+            y_pred = model(torch.from_numpy(norm_data).to(torch.float32)).numpy()
+
+        binary_preds = (y_pred > threshold).astype(int).flatten()
+        binary_targets = (overlaps > threshold).astype(int).flatten()
+        mask = (binary_preds == binary_targets)
+        t_mid = (t[:-1] + t[1:]) / 2
+        ax4.plot(t_mid, y_pred)
+        ax4.plot([t_mid[0], t_mid[-1]], [threshold, threshold], "k--")
+        ax4.scatter(t_mid[mask],  y_pred[mask], color="g")
+        ax4.scatter(t_mid[~mask], y_pred[~mask], color="r")
+
     # Enhance layout and display the plot
     plt.tight_layout()
     plt.show()
 
 
-if __name__ == '__main__':
-    # High-level params
-    fs = 3000  # Sampling frequency in Hz
-    windows_per_sec = 5
-    interval_ratio_left = 0.1
-    interval_ratio_right = 0.1
+# High-level params
+fs = 3000  # Sampling frequency in Hz
+windows_per_sec = 5
+interval_ratio_left = 0.1
+interval_ratio_right = 0.1
 
-    # Example 1:
+
+if __name__ == '__main__':
+    # Example 1: Make a basic plot
     # plot_some_data()
 
-    # Example 2:
+    # Example 2: Get a single example from dataset
     # data, target = next(yield_samples())
+    # print(data, target)
     # print(data.shape, target.shape)
 
-    # Example 3:
+    # Example 3: Process whole dataset
     examples = list(yield_samples())
     print("Number of examples", len(examples))
-    with open("dataset.pickle", "wb") as f:
+    with open("data.pkl", "wb") as f:
         pickle.dump(examples, f)
-
-
-
