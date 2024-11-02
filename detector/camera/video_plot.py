@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-import torch
+from scipy.signal import firwin, filtfilt
 
 
 def load_video(video_path):
@@ -24,7 +24,7 @@ def extract_roi(frames):
 
 
 def min_max_normalization(signal):
-    return (signal - signal.min()) / signal.max()
+    return (signal - signal.min()) / (signal.max() - signal.min())
 
 
 def process_video(video_path, model_path):
@@ -37,22 +37,18 @@ def process_video(video_path, model_path):
     # signal = np.mean(frames[:, :, :, 1], axis=(1, 2))
     signal = min_max_normalization(signal)
 
-    # Denoise signal
-    model = torch.jit.load(model_path, map_location='cpu')
-    model.eval()
-    tensor = torch.tensor(signal, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
-    denoised_output, quality_output = model(tensor[:, :, :100])
-
-    print(f"Quality: {quality_output.item()}")
-
-    return signal, denoised_output, frames, (center_x, center_y)
+    return signal, frames, (center_x, center_y)
 
 
-def plot_results(signal, denoised_output, frames, center_coords):
+def plot_results(signal, frames, center_coords):
     # Plot original vs denoised signal
     plt.figure()
+    plt.subplot(2, 1, 1)
     plt.plot(signal, label='Original Signal')
-    # plt.plot(denoised_output.detach().numpy().flatten(), label='Denoised Signal')
+    plt.subplot(2, 1, 2)
+    filter = firwin(10, 100, fs=30)
+    filtered_signal = filtfilt(filter, 1, signal)
+    plt.plot(filtered_signal, label='Filtered Signal')
     plt.legend()
     plt.show()
 
@@ -60,8 +56,8 @@ def plot_results(signal, denoised_output, frames, center_coords):
     frame = frames[0].copy()
     center_x, center_y = center_coords
     cv2.rectangle(frame,
-                  (center_x - 50, center_y - 50),
-                  (center_x + 50, center_y + 50),
+                  (center_x - 30, center_y - 30),
+                  (center_x + 30, center_y + 30),
                   (0, 255, 0), 2)
     plt.figure()
     plt.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
@@ -70,8 +66,8 @@ def plot_results(signal, denoised_output, frames, center_coords):
 
 
 if __name__ == "__main__":
-    VIDEO_PATH = 'C:/Users/vojta/Downloads/PPG_android/2024-11-02_15-10-10_REC9145263651989545060.mp4'
+    VIDEO_PATH = '2024-11-02_15-10-32_REC1464131401588062562.mp4'
     MODEL_PATH = 'C:/Users/vojta/PycharmProjects/ACGTeam_HeartTrack/detector/denoising/checkpoints/model_25.pt'
 
-    signal, denoised_output, frames, center_coords = process_video(VIDEO_PATH, MODEL_PATH)
-    plot_results(signal, denoised_output, frames, center_coords)
+    signal, frames, center_coords = process_video(VIDEO_PATH, MODEL_PATH)
+    plot_results(signal, frames, center_coords)

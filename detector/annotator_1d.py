@@ -2,8 +2,6 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 import wave
-import soundfile as sf
-from scipy.io import wavfile
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -41,14 +39,34 @@ class AudioLoader:
         return audio_data, frame_rate
 
 
+class BadQuality:
+    start: float | None = None
+    end: float | None = None
+    
+    def add_point(self, x, y):
+        if self.start is None:
+            self.start = (x, y)
+        else:
+            self.end = (x, y)
+
+    def get_segment(self):
+        if self.start is None or self.end is None:
+            return None
+        return (self.start[0], self.end[0])
+
 class ClickDetector:
-    def __init__(self, audio_loader):
-        self.audio_loader = audio_loader
+    def __init__(self, audio_data, rate):
+        self.audio_data = audio_data
+        self.rate = rate
         self.clicks = []
         self.csv_annotations = []
+        self.quality: bool = True
+        self.bad_quality = BadQuality()
+        self.bad_quality_segments = []
+        
     def simple_click_detector(self):
         """Simple single-click detection"""
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(dpi=200)
         ax.set_title('Click anywhere on the plot (press "q" to quit)')
         
         # Plot some sample data if needed
@@ -77,11 +95,10 @@ class ClickDetector:
         
     def interactive_annotator(self):
         """More advanced click detector with annotations"""
-        audio_data, rate = self.audio_loader.load_with_wave()
-        fig, ax = plt.subplots()
+        fig, ax = plt.subplots(dpi=200)
         ax.set_title('Click to add points. Right click to remove.\nPress "q" to quit')
         
-        points, = ax.plot(np.linspace(0, len(audio_data)/rate, len(audio_data)), audio_data, 'rx-', markersize=0.5, linewidth=0.5)  # Empty line with red dots
+        points, = ax.plot(np.linspace(0, len(self.audio_data)/self.rate, len(self.audio_data)), self.audio_data, 'rx-', markersize=0.5, linewidth=0.5)  # Empty line with red dots
         annotations = []
         def onclick(event):
             if event.inaxes is not None:
@@ -97,7 +114,7 @@ class ClickDetector:
                         xytext=(5, 5), textcoords='offset points'
                     )
                     annotations.append(annot)
-                    self.csv_annotations.append((event.xdata, event.ydata))
+                    self.csv_annotations.append((event.xdata, event.ydata, int(self.quality)))
                     print(f'Clicked at x={event.xdata:.2f}, y={event.ydata:.2f}')
                 
                 fig.canvas.draw()
@@ -105,6 +122,20 @@ class ClickDetector:
         def onkey(event):
             if event.key == 'q':
                 plt.close()
+                
+            if event.key == "b":
+                mouse_x, mouse_y = event.inaxes.transData.inverted().transform((event.x, event.y))
+                plt.plot(mouse_x, mouse_y, 'bo', picker=5)
+                self.bad_quality.add_point(mouse_x, mouse_y)
+                if self.bad_quality.get_segment() is not None:
+                    self.bad_quality_segments.append(self.bad_quality.get_segment())
+                    plt.plot((self.bad_quality.start[0], self.bad_quality.end[0]), (self.bad_quality.start[1], self.bad_quality.end[1]), 'b-', picker=5)
+                    self.bad_quality = BadQuality()
+                print(f"Mouse position: x={mouse_x:.2f}, y={mouse_y:.2f}")
+                self.quality = False
+            if event.key == "g":
+                self.quality = True
+            fig.canvas.draw()
         
         # Connect the event handlers
         fig.canvas.mpl_connect('button_press_event', onclick)
@@ -112,21 +143,30 @@ class ClickDetector:
         plt.show()
 
 def main():    
-    file_path = "2024-11-02_13-06-20_audio_record.wav"
-    loader = AudioLoader(file_path)
-    samples, rate = loader.load_with_wave()
-    print(f"Wave: Sample rate: {rate}Hz, Shape: {samples.shape}")
-    
-    detector = ClickDetector(loader)
-    
-    # Choose one of these methods:
-    detector.interactive_annotator()  # Simple click detection
-    # detector.interactive_annotator()  # Advanced with annotations
-    
-    print("Final click positions:", detector.clicks)
-    path = file_path.replace(".wav", ".csv")
-    dataframe = pd.DataFrame(detector.csv_annotations, columns=["time", "amplitude"])
-    dataframe.to_csv(path, index=False)
+    import json
+    from pathlib import Path
+
+    files = Path("/Users/brani/code/ACGTeam_HeartTrack_data/lavicka_data").glob("*.csv")
+    for file_path in files:
+        if file_path.name.endswith(".wav"):
+            loader = AudioLoader(file_path)
+            samples, rate = loader.load_with_wave()
+            print(f"Wave: Sample rate: {rate}Hz, Shape: {samples.shape}")
+            
+            detector = ClickDetector(samples, rate)
+        else:
+            samples = np.loadtxt(file_path)
+            detector = ClickDetector(samples, rate=30)
+        # Choose one of these methods:
+        detector.interactive_annotator()  # Simple click detection
+        # detector.interactive_annotator()  # Advanced with annotations
+        
+        print("Final click positions:", detector.clicks)
+        path = str(file_path).replace(".csv", ".json")
+        points = [{"time": t} for t, a, q in detector.csv_annotations]
+        bad_segments = [{"start": s, "end": e} for s, e in detector.bad_quality_segments]
+        with open(path, "w") as f:
+            json.dump({"points": points, "bad_segments": bad_segments}, f, indent=4)
 
 if __name__ == "__main__":
     main()
