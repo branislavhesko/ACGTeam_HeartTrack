@@ -1,6 +1,7 @@
 import pytorch_lightning as L
-import torch
+from pytorch_lightning.callbacks import ModelCheckpoint
 
+import torch
 import torch.nn as nn
 import torch.optim as optim
 
@@ -29,10 +30,10 @@ class Engine(L.LightningModule):
         return self.data_loaders
 
     def training_step(self, batch):
-        data, targets = batch
-        denoised_output, quality_output = self.model(data)
+        signal, noise, targets = batch
+        denoised_output, quality_output = self.model(noise)
 
-        denoising_loss = self.denoising_criterion(denoised_output, data)
+        denoising_loss = self.denoising_criterion(denoised_output, signal)
         quality_loss = self.quality_criterion(quality_output, targets.float().unsqueeze(1))
         loss = denoising_loss + quality_loss
 

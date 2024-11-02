@@ -91,7 +91,7 @@ class WFDBDataset(torch.utils.data.Dataset):
 
         data = data[torch.randint(0, data.shape[0], (1,)), :]
 
-        return self.transform(min_max_normalization(data)).float(), torch.tensor(quality).long()
+        return min_max_normalization(data).float(), self.transform(min_max_normalization(data)).float(), torch.tensor(quality).long()
 
 
 def filter_bad_data(ppg_file, assert_length_min: int = 300):

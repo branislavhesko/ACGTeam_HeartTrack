@@ -17,7 +17,7 @@ class DenoisingConfig:
     lr: float = 1e-4
     batch_size: int = 2
     num_epochs: int = 30
-    num_workers: int = 15
+    num_workers: int = 1
 
     folder_path: str = "C:/Users/vojta/Downloads/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0"
 
