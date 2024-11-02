@@ -33,7 +33,8 @@ def extract_fn(frames, roi_size: int = None, roi_center=None):
     else:
         crops = frames
     print(crops.shape)
-    return crops[:, 2, ...].mean(dim=(1, 2))
+    # green channel
+    return crops[:, 1, ...].mean(dim=(1, 2))
 
 
 def process_video(video_path):
