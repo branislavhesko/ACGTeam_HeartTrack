@@ -5,6 +5,8 @@ import pandas as pd
 import torch
 import wfdb
 
+import torch.nn as nn
+
 
 class GaussianNoise(torch.nn.Module):
     def __init__(self, mean: float, std: float, probability: float):
@@ -89,14 +91,17 @@ class WFDBDataset(torch.utils.data.Dataset):
         quality = self.quality_annotation[int(record_folder_name)]
         data = torch.from_numpy(record.p_signal).float()
 
-        data = data[torch.randint(0, data.shape[0], (1,)), :]
+        data = data[:, 1].reshape(1, -1)
+        # data = data.transpose(0, 1)
+
+        # data = data[torch.randint(0, data.shape[2], (1,)), :]
 
         return min_max_normalization(data).float(), self.transform(min_max_normalization(data)).float(), torch.tensor(quality).long()
 
 
 def filter_bad_data(ppg_file, assert_length_min: int = 300):
     record = load_record(ppg_file.with_suffix(""))
-    if record.p_signal.shape[1] < assert_length_min:
+    if record.p_signal.shape[0] < assert_length_min:
         return False
     return True
 
@@ -122,7 +127,8 @@ def get_dataloader(
         batch_size=batch_size,
         pin_memory=pin_memory,
         drop_last=True,
-        persistent_workers=True
+        persistent_workers=True,
+        shuffle=True
     )
 
 
@@ -131,14 +137,25 @@ if __name__ == "__main__":
 
     dataloader = get_dataloader(
         # "/Users/brani/Downloads/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0",
-        "C:/Users/vojta/Downloads/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0",
+        "C:/Users/vojta/Downloads/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0",
+        # "C:/Users/vojta/Downloads/brno-university-of-technology-smartphone-ppg-database-but-ppg-1.0.0",
         batch_size=1,
         num_workers=1,
         pin_memory=True
     )
-    for record, quality in dataloader:
-        print(record)
-        for i in range(record.shape[-1]):
-            plt.plot(record[0, :, i].numpy())
-        plt.title(f"Quality: {quality[0]}")
-        plt.show()
+
+    MODEL_PATH = 'C:/Users/vojta/PycharmProjects/ACGTeam_HeartTrack/detector/denoising/checkpoints/model_29.pt'
+    model = torch.jit.load(MODEL_PATH, map_location='cpu')
+    model.eval()
+
+    for signal, record, quality in dataloader:
+        # print(signal.shape)
+        # print(record)
+
+        quality_output = model(record)
+        print(f"Quality: {nn.functional.softmax(quality_output, dim=1)}, GT: {quality}")
+
+        # for i in range(record.shape[-1]):
+        #     plt.plot(record[0, 0, :].numpy())
+        # plt.title(f"Quality: {quality[0]}")
+        # plt.show()

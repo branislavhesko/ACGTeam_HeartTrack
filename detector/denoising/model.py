@@ -30,24 +30,8 @@ class EncoderBlock(nn.Module):
         return x, p
 
 
-class DecoderBlock(nn.Module):
-    def __init__(self, in_c, out_c):
-        super().__init__()
-        self.up = nn.ConvTranspose1d(in_c, out_c, kernel_size=2, stride=2)
-        self.conv = ConvBlock(out_c + out_c, out_c)
-
-    def forward(self, inputs, skip):
-        x = self.up(inputs)
-        if x.size(2) != skip.size(2):
-            diff = skip.size(2) - x.size(2)
-            x = nn.functional.pad(x, (diff // 2, diff - diff // 2))
-        x = torch.cat([x, skip], axis=1)
-        x = self.conv(x)
-        return x
-
-
 class UNet(nn.Module):
-    def __init__(self, in_channels=1, out_channels=1):
+    def __init__(self, in_channels=1, out_channels=2):
         super().__init__()
         self.encoder = nn.ModuleList([
             EncoderBlock(in_channels, 64),
@@ -56,17 +40,11 @@ class UNet(nn.Module):
             EncoderBlock(256, 512)
         ])
         self.bottleneck = ConvBlock(512, 1024)
-        self.decoder = nn.ModuleList([
-            DecoderBlock(1024, 512),
-            DecoderBlock(512, 256),
-            DecoderBlock(256, 128),
-            DecoderBlock(128, 64)
-        ])
-        self.outputs = nn.Conv1d(64, out_channels, kernel_size=1)
+
         self.classifier = nn.Sequential(
             nn.Linear(1024, 512),
             nn.ReLU(),
-            nn.Linear(512, 1)
+            nn.Linear(512, out_channels)
         )
 
     def forward(self, inputs):
@@ -80,9 +58,6 @@ class UNet(nn.Module):
         x = self.bottleneck(x)
 
         flattened = torch.flatten(x.mean(2), start_dim=1)
-        quality_output = torch.sigmoid(self.classifier(flattened))
+        quality_output = self.classifier(flattened)
 
-        for dec, skip in zip(self.decoder, reversed(skips)):
-            x = dec(x, skip)
-
-        return self.outputs(x), quality_output
+        return quality_output

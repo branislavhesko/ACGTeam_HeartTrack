@@ -14,18 +14,10 @@ class Mode(Enum):
 
 @dataclasses.dataclass
 class DenoisingConfig:
-    lr: float = 1e-4
-    batch_size: int = 2
-    num_epochs: int = 30
+    lr: float = 7e-5
+    batch_size: int = 16
+    num_epochs: int = 40
     num_workers: int = 1
 
-    folder_path: str = "C:/Users/vojta/Downloads/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0"
-
-    # def make_dataloaders(self):
-    #     return {
-    #         Mode.TRAIN: DataLoader(PPGDataset(...),
-    #                                batch_size=self.batch_size,
-    #                                num_workers=self.num_workers,
-    #                                shuffle=True
-    #                                )
-    #     }
+    folder_path: str = "C:/Users/vojta/Downloads/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0"
+    # folder_path: str = "C:/Users/vojta/Downloads/brno-university-of-technology-smartphone-ppg-database-but-ppg-1.0.0"
