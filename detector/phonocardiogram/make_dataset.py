@@ -6,18 +6,67 @@ import torch
 from scipy.io import loadmat
 from scipy.signal import butter, filtfilt, spectrogram
 
+from detector.phonocardiogram.learn_net import predictions_to_peaks, eval_sequence
+import statistics
 
-def yield_raw_data():
-    mat = loadmat('PCG_dataset.mat')
-    pcg = mat['PCG_dataset']
 
-    for example_idx in range(len(pcg[0])):
+
+def describe(data):
+    if not data:
+        print("The list is empty.")
+        return
+
+    print("Statistics of the list:")
+    print(f"Count: {len(data)}")
+    print(f"Min: {min(data)}")
+    print(f"Max: {max(data)}")
+    print(f"Mean: {statistics.mean(data):.2f}")
+    print(f"Median: {statistics.median(data):.2f}")
+    print(f"Standard Deviation: {statistics.stdev(data):.2f}" if len(
+        data) > 1 else "Standard Deviation: Not applicable (need at least 2 values)")
+
+
+_PCG = None
+
+BAD_SEQUENCES = [
+84,
+        163,
+        206,
+        233,
+        278,
+        316,
+        346,
+        538,
+        544,
+        597,
+]
+
+def yield_raw_data(example_idx = None):
+    global _PCG
+    if _PCG is not None:
+        pcg = _PCG
+    else:
+        mat = loadmat('PCG_dataset.mat')
+        pcg = mat['PCG_dataset']
+        _PCG = pcg
+
+    if example_idx is not None:
         x = pcg[0][example_idx][0]
         y = pcg[0][example_idx][1]
         # Ensure proper data format
         signal = np.asarray(x).flatten()
         peak_locs = np.asarray(y).flatten()
         yield signal, peak_locs
+    else:
+        for example_idx in range(len(pcg[0])):
+            if example_idx in BAD_SEQUENCES:
+                continue
+            x = pcg[0][example_idx][0]
+            y = pcg[0][example_idx][1]
+            # Ensure proper data format
+            signal = np.asarray(x).flatten()
+            peak_locs = np.asarray(y).flatten()
+            yield signal, peak_locs
 
 
 def bandpass_filter(data, low_cutoff, high_cutoff, fs, order=2):
@@ -101,23 +150,29 @@ def compute_overlaps(xs, ys, window_size):
     return overlaps
 
 
-def yield_samples():
+def yield_full_sequences():
     for signal, peak_locs in yield_raw_data():
         f, t, S = get_spectrogram(signal, fs, windows_per_sec)
         t_intervals = list(zip(t[:-1], t[1:]))
+        peak_times = peak_locs / fs
         peak_time_intervals = peak_intervals(peak_locs, len(signal), fs, interval_ratio_left, interval_ratio_right)
         overlaps = compute_overlaps(t_intervals, peak_time_intervals, windows_per_sec * 2)  # *2 due to overlap
         S = S.T
         norm_data = (S - np.mean(S, axis=0))
         norm_data /= np.std(norm_data, axis=0)
+        yield norm_data, overlaps, t, peak_times
+
+def yield_samples():
+    for norm_data, overlaps, t, peak_times in yield_full_sequences():
         for x, y in zip(norm_data, overlaps):
             yield x.ravel().reshape(-1, 1), y.ravel().reshape(-1, 1)
 
 
-def plot_some_data(model = None):
-    signal, peak_locs = next(yield_raw_data())
+def plot_some_data(model = None, example_idx = None, save = False):
+    signal, peak_locs = next(yield_raw_data(example_idx))
     f, t, S = get_spectrogram(signal, fs, windows_per_sec)
     t_intervals = list(zip(t[:-1], t[1:]))
+    peak_times = peak_locs / fs
     peak_time_intervals = peak_intervals(peak_locs, len(signal), fs, interval_ratio_left, interval_ratio_right)
     overlaps = compute_overlaps(t_intervals, peak_time_intervals, windows_per_sec * 2)  # *2 due to overlap
     S = S.T
@@ -175,7 +230,12 @@ def plot_some_data(model = None):
 
     # Enhance layout and display the plot
     plt.tight_layout()
-    plt.show()
+    if save:
+        print(f"Saving sequences/{example_idx}.jpg")
+        plt.savefig(f"sequences/{example_idx}.jpg")
+    else:
+        plt.show()
+
 
 
 # High-level params

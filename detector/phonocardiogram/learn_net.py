@@ -12,9 +12,9 @@ class PickleDataset(Dataset):
         with open(pickle_file, 'rb') as f:
             data = pickle.load(f)  # data is a list of (input, target) tuples
         # Unzip the list of tuples into separate inputs and targets
-        self.X, self.y = zip(*data)
-        self.X = torch.tensor(self.X, dtype=torch.float32).squeeze(-1)
-        self.y = torch.tensor(self.y, dtype=torch.float32).squeeze(-1)
+        self.data = zip(*data)
+        self.X = torch.tensor(self.data[0], dtype=torch.float32).squeeze(-1)
+        self.y = torch.tensor(self.data[1], dtype=torch.float32).squeeze(-1)
         print("X", self.X.shape)
         print("y", self.y.shape)
 
@@ -84,6 +84,67 @@ def eval_cm(model, test_loader, device):
     cm = confusion_matrix(binary_targets, binary_preds, labels=[0,1])
     print("CM", cm)
     print("CM", (cm[0,0]+cm[1,1]) / cm.sum())
+
+
+def find_subgroup_indices(binary_list):
+    start = None
+    indices = []
+
+    for i, value in enumerate(binary_list):
+        if value:
+            if start is None:
+                start = i  # Start of a new group of 1's
+        elif start is not None:
+            indices.append((start, i - 1))  # End of the current group of 1's
+            start = None  # Reset start for the next group
+
+    if start is not None:  # If a group ends at the end of the list
+        indices.append((start, len(binary_list) - 1))
+
+    return indices
+
+
+def predictions_to_peaks(t, y_pred, threshold):
+    for start, end in find_subgroup_indices(y_pred > threshold):
+        yield ((t[start] - t[end]) / 2.) + t[start]
+
+def eval_sequence(peak_times, peak_predictions):
+    return min_pairing_distance(peak_times, peak_predictions)
+
+
+def min_pairing_distance(xs, ys):
+    n = len(xs)
+    m = len(ys)
+
+    xs_sorted = sorted(xs)
+    ys_sorted = sorted(ys)
+
+    # Ensure xs is the shorter list to optimize space complexity
+    if n > m:
+        xs_sorted, ys_sorted = ys_sorted, xs_sorted
+        n, m = m, n
+
+    INF = float('inf')
+
+    # Initialize DP table
+    dp = [[INF] * (m + 1) for _ in range(n + 1)]
+    for j in range(m + 1):
+        dp[0][j] = 0  # Zero elements in xs, cost is zero
+
+    for i in range(1, n + 1):
+        dp[i][0] = INF  # Cannot match xs[0..i-1] with zero elements in ys
+
+    # Fill DP table
+    for i in range(1, n + 1):
+        for j in range(i, m + 1):  # Ensure j >= i to have enough ys elements to match xs
+            cost = abs(xs_sorted[i - 1] - ys_sorted[j - 1])
+            dp[i][j] = min(
+                dp[i - 1][j - 1] + cost,  # Match xs[i-1] with ys[j-1]
+                dp[i][j - 1]  # Skip ys[j-1], do not match it
+            )
+
+    # The answer is the minimum cost to match all elements in xs
+    return dp[n][m]
 
 
 def main():
