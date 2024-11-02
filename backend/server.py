@@ -106,6 +106,24 @@ def save_results(results: dict, device_id: str):
     with open(path, "w") as f:
         json.dump(results, f)
         
+        
+def calculate_hrv_from_times(peak_times):
+    if len(peak_times) < 3:
+        return 0.0
+
+    # Calculate RR intervals
+    rr_intervals = np.diff(peak_times)
+    
+    # Remove physiologically impossible intervals (< 0.2s or > 2.0s)
+    rr_intervals = rr_intervals[(rr_intervals >= 0.2) & (rr_intervals <= 2.0)]
+    
+    if len(rr_intervals) < 2:
+        return 0.0
+
+    hrv = np.std(rr_intervals * 1000)
+    
+    return float(hrv)
+
 
 def process_in_thread(video_path: Path):
     signal = process_video(video_path)
@@ -113,6 +131,9 @@ def process_in_thread(video_path: Path):
     with open(str(video_path).replace(MP4_EXTENSION, ".detector"), "w") as f:
         for h in heart_rates.tolist():
             f.write(f"{h}\n")
+            
+    with open(str(video_path).replace(MP4_EXTENSION, ".hrv"), "w") as f:
+        f.write(f"{calculate_hrv_from_times(phonocardiogram_peaks)}\n")
             
     with open(str(video_path).replace(MP4_EXTENSION, ".phonocardiogram"), "w") as f:
         for p in phonocardiogram_peaks.tolist():
@@ -164,6 +185,12 @@ def get_results(patient_id: str):
     detector_path = get_most_recent_file(list(path.glob("*.detector")))
     quality_path = get_most_recent_file(list(path.glob("*.quality")))
     phonocardiogram_path = get_most_recent_file(list(path.glob("*.phonocardiogram")))
+    hrv_path = get_most_recent_file(list(path.glob("*.hrv")))
+    
+    if not hrv_path:
+        hrv = 0.0
+    else:
+        hrv = float(np.loadtxt(hrv_path))
     
     if not csv_path:
         signal = np.zeros(300)
@@ -198,6 +225,7 @@ def get_results(patient_id: str):
     return {
         "heart_rate": f"{int(heart_rate)}",
         "heart_rate_phonocardiogram": f"{int(heart_rate_phonocardiogram)}",
+        "hrv": int(hrv),
         "OK signal": f"{int(quality * 100)}%",
         "quality": quality,
         "patient_id": patient_id,
