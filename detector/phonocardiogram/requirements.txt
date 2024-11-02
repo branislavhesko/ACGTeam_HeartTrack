@@ -1,0 +1,12 @@
+jupyter
+scipy
+matplotlib
+matplotlib
+scipy
+scipy
+jupyter
+torch
+matplotlib
+torch
+scikit-learn
+pydub
