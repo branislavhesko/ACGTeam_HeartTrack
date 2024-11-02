@@ -92,6 +92,6 @@ if __name__ == '__main__':
     # plot_some_data(model, file_name="data/2024-11-02_19-33-19_REC5893019824290697924.mp4")
     # evaluate_bpm(model)
 
-    t, f, norm_data, predicted_peaks = eval_mp4_file(model=model, mp4_file="data/2024-11-02_19-33-19_REC5893019824290697924.mp4")
+    t, f, norm_data, predicted_peaks = eval_mp4_file(model=model, mp4_file="data/example.mp4")
     plot_evaluation(t, f, norm_data, predicted_peaks)
     print("BPM", (len(predicted_peaks) / max(t)) * 60)
