@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 
 from model import UNet
+from dataloader import min_max_normalization
 
 import matplotlib.pyplot as plt
 
@@ -18,6 +19,7 @@ def load_model(model_path):
 
 def predict(model, signal):
     model.eval()
+    signal = min_max_normalization(torch.tensor(signal)).float()
     signal = torch.tensor(signal, dtype=torch.float32).unsqueeze(0).unsqueeze(0)
     quality_output = model(signal)
     return quality_output
