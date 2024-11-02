@@ -83,15 +83,15 @@ def plot_evaluation(t, f, norm_data, predicted_peaks):
     ax1.legend(loc='upper right')
     for idx, peak in enumerate(predicted_peaks):
         ax1.axvline(x=peak, color='red', linestyle='--', linewidth=1.5)
-    plt.show()
+    return fig
 
 if __name__ == '__main__':
-    with open("models/model_colab3.torch", "rb") as f:
+    with open("detector/phonocardiogram/models/model_colab3.torch", "rb") as f:
         model = torch.load(f, map_location=torch.device("cpu"))
 
     # plot_some_data(model, file_name="data/2024-11-02_19-33-19_REC5893019824290697924.mp4")
     # evaluate_bpm(model)
 
-    t, f, norm_data, predicted_peaks = eval_mp4_file(model=model, mp4_file="data/example.mp4")
+    t, f, norm_data, predicted_peaks = eval_mp4_file(model=model, mp4_file="detector/phonocardiogram/data/example.mp4")
     plot_evaluation(t, f, norm_data, predicted_peaks)
     print("BPM", (len(predicted_peaks) / max(t)) * 60)

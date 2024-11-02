@@ -47,7 +47,7 @@ BAD_SEQUENCES = [
 
 def yield_video(file_name: str):
     signal = load_and_filter_audio(file_name)
-    peak_times = load_peak_times(file_name.removesuffix(".mp4") + ".json")
+    peak_times = []
     return signal, peak_times
 
 
@@ -66,13 +66,13 @@ def yield_ref_data(example_idx):
 
 
 def yield_raw_data(example_idx = None, file_name = None):
-    global _PCG
-    if _PCG is not None:
-        pcg = _PCG
-    else:
-        mat = loadmat('PCG_dataset.mat')
-        pcg = mat['PCG_dataset']
-        _PCG = pcg
+    # global _PCG
+    # if _PCG is not None:
+    #     pcg = _PCG
+    # else:
+    #     mat = loadmat('PCG_dataset.mat')
+    #     pcg = mat['PCG_dataset']
+    #     _PCG = pcg
 
     if file_name:
         yield yield_video(file_name)
@@ -90,6 +90,7 @@ def yield_raw_data(example_idx = None, file_name = None):
 
 def load_and_filter_audio(mp4_file):
     # Load audio from the MP4 file
+    print(mp4_file)
     audio = AudioSegment.from_file(mp4_file, format="mp4")
 
     # Convert to mono if necessary
