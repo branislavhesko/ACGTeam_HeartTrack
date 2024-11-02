@@ -96,7 +96,7 @@ class WFDBDataset(torch.utils.data.Dataset):
 
 def filter_bad_data(ppg_file, assert_length_min: int = 300):
     record = load_record(ppg_file.with_suffix(""))
-    if record.p_signal.shape[0] < assert_length_min:
+    if record.p_signal.shape[1] < assert_length_min:
         return False
     return True
 
@@ -130,7 +130,8 @@ if __name__ == "__main__":
     from matplotlib import pyplot as plt
 
     dataloader = get_dataloader(
-        "/Users/brani/Downloads/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0",
+        # "/Users/brani/Downloads/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0",
+        "C:/Users/vojta/Downloads/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0/brno-university-of-technology-smartphone-ppg-database-but-ppg-2.0.0",
         batch_size=1,
         num_workers=1,
         pin_memory=True

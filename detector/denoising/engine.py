@@ -10,15 +10,16 @@ from dataloader import get_dataloader
 
 
 class Engine(L.LightningModule):
-    def __init__(self, model, config, **kwargs):
+    def __init__(self, model: nn.Module, config: DenoisingConfig, **kwargs):
         super().__init__(**kwargs)
         self.model = model
-        self.criterion = nn.MSELoss()
+        self.denoising_criterion = nn.MSELoss()
+        self.quality_criterion = nn.BCEWithLogitsLoss()
 
         self.data_loaders = get_dataloader(
             folder_path=config.folder_path,
             batch_size=config.batch_size,
-            num_workers=1,
+            num_workers=config.num_workers,
             pin_memory=True
         )
 
@@ -31,8 +32,17 @@ class Engine(L.LightningModule):
         data, targets = batch
         denoised_output, quality_output = self.model(data)
 
-        loss = self.criterion(denoised_output, data)
-        self.log('train_loss', loss)
+        denoising_loss = self.denoising_criterion(denoised_output, data)
+        quality_loss = self.quality_criterion(quality_output, targets.float().unsqueeze(1))
+        loss = denoising_loss + quality_loss
+
+        preds = (quality_output > 0.5).float()
+        acc = (preds == targets).float().mean()
+
+        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log('train_acc', acc, on_step=True, on_epoch=True, prog_bar=True)
+        self.log('train_denoising_loss', denoising_loss, on_step=True, on_epoch=True, prog_bar=True)
+        self.log('train_quality_loss', quality_loss, on_step=True, on_epoch=True, prog_bar=True)
 
         return loss
 
