@@ -41,9 +41,6 @@ def process_video(video_path):
     video = load_video(video_path)
     signal = extract_fn(video, roi_size=50)
     print(signal.shape)
-    with open(str(video_path).replace(".mp4", ".csv"), "w") as f:
-        for s in signal.tolist():
-            f.write(f"{s}\n")
     return signal
 
 

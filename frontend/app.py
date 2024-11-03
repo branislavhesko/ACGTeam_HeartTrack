@@ -1,3 +1,4 @@
+import os
 import matplotlib
 matplotlib.use("Agg")
 import cv2
@@ -23,6 +24,9 @@ def load_all_bpm(patient_folder: Path):
     bpm_values = []
     print(f"Found {len(detector_paths)} detector files")
     for detector_path in detector_paths:
+        quality_path = str(detector_path).replace(".detector", ".quality")
+        if not os.path.exists(quality_path) or np.loadtxt(quality_path) < 0.5:
+            continue
         detector = np.loadtxt(detector_path)
         try:
             bpm = 1.0 / np.median(detector[1:] - detector[:-1]) * 60
@@ -37,6 +41,9 @@ def load_all_hrv(patient_folder: Path):
     hrv_paths = sorted(list(patient_folder.glob("*.hrv")), key=lambda x: x.stat().st_ctime)
     hrv_values = []
     for hrv_path in hrv_paths:
+        quality_path = str(hrv_path).replace(".hrv", ".quality")
+        if not os.path.exists(quality_path) or np.loadtxt(quality_path) < 0.5:
+            continue
         hrv = float(np.loadtxt(hrv_path))
         if hrv > 0 and not np.isnan(hrv):
             hrv_values.append(hrv)
@@ -114,7 +121,7 @@ def main():
                 st.metric(label="Heart Rate", value=f"{int(heart_rate)} bpm")
                 
             with placeholder00:
-                st.metric(label="HRV", value=f"{load_hrv(get_most_recent_file(list(patient_folder.glob("*.hrv"))))} ms")
+                st.metric(label="HRV", value=f"{int(load_hrv(get_most_recent_file(list(patient_folder.glob("*.hrv")))))} ms")
                 
             with placeholder3:
                 st.markdown("## Measured PCG Data")
@@ -132,20 +139,21 @@ def main():
                             
             else:
                 st.warning("No results found")
-                    
+                
             with placeholder5:
+                st.markdown("## BPM History")
+                
+            with placeholder7:
+                bpm_values = load_all_bpm(patient_folder)
+                st.line_chart(bpm_values)
+                    
+            with placeholder6:
                 st.markdown("## HRV History")
             
-            with placeholder7:
+            with placeholder8:
                 hrv_values = load_all_hrv(patient_folder)
                 st.line_chart(hrv_values)
             
-            with placeholder6:
-                st.markdown("## BPM History")
-                
-            with placeholder8:
-                bpm_values = load_all_bpm(patient_folder)
-                st.line_chart(bpm_values)
 
         else:
             st.warning("No patient selected or found")

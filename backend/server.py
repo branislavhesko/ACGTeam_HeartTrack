@@ -128,20 +128,25 @@ def calculate_hrv_from_times(peak_times):
 def process_in_thread(video_path: Path):
     signal = process_video(video_path)
     heart_rates, quality, phonocardiogram_peaks = processor.process(signal.numpy(), video_path)
+    
+    with open(str(video_path).replace(".mp4", ".csv"), "w") as f:
+        for s in signal.tolist():
+            f.write(f"{s}\n")
+    
+    # Save quality
+    with open(str(video_path).replace(MP4_EXTENSION, ".quality"), "w") as f:
+        f.write(f"{quality}\n")
+
     with open(str(video_path).replace(MP4_EXTENSION, ".detector"), "w") as f:
         for h in heart_rates.tolist():
             f.write(f"{h}\n")
             
     with open(str(video_path).replace(MP4_EXTENSION, ".hrv"), "w") as f:
-        f.write(f"{calculate_hrv_from_times(phonocardiogram_peaks)}\n")
+        f.write(f"{calculate_hrv_from_times(heart_rates)}\n")
             
     with open(str(video_path).replace(MP4_EXTENSION, ".phonocardiogram"), "w") as f:
         for p in phonocardiogram_peaks.tolist():
             f.write(f"{p}\n")
-
-    with open(str(video_path).replace(MP4_EXTENSION, ".quality"), "w") as f:
-        f.write(f"{quality}\n")
-
 
     if heart_rates.size >= 2:
         heart_rate = 1.0 / float(np.median(heart_rates[1:] - heart_rates[:-1])) * 60
@@ -223,8 +228,8 @@ def get_results(patient_id: str):
         heart_rate_phonocardiogram = len_phonocardiogram / VIDEO_LENGTH * 60
     print(f"heart_rate_phonocardiogram={heart_rate_phonocardiogram}, heart_rate={heart_rate}")
     return {
-        "heart_rate": f"{int(heart_rate)}",
-        "heart_rate_phonocardiogram": f"{int(heart_rate_phonocardiogram)}",
+        "heart_rate": int(heart_rate),
+        "heart_rate_phonocardiogram": int(heart_rate_phonocardiogram),
         "hrv": int(hrv),
         "OK signal": f"{int(quality * 100)}%",
         "quality": quality,
