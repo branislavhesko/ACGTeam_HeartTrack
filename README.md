@@ -8,5 +8,10 @@ HeartTrack challenge for https://www.hackjakbrno.cz
 4) Add HR historic data to the app
 
 # AI Suggestions
-1) ~~Add HRV (Heart Rate Variability) to the app~~
-2) ~~Deployment of the PCG model to the app~~
+1) Add HRV (Heart Rate Variability) to the app
+2) Deployment of the PCG model to the app
+
+
+
+Dashboard: http://152.53.50.74:8001
+Server: http://152.53.50.74:8000
